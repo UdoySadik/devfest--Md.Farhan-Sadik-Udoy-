@@ -1,10 +1,16 @@
 /**
- * Tender Information Panel UI Component
- * Renders tender metadata (ID, title, procuring entity, bidder, submission deadline)
- * or placeholder empty state in Phase 1.
+ * Tender Information Panel UI Component (Phase 2 Implementation)
+ * Renders tender metadata: ID, title, procuring entity, bidder, submission deadline.
  */
 
 import { t } from '../i18n.js';
+
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
 
 /**
  * Render tender information or empty placeholder state.
@@ -18,7 +24,7 @@ export function renderTenderInfo(container, tender) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">🏢</div>
-        <p class="empty-state-text">${t('tenderInfoPlaceholder')}</p>
+        <p class="empty-state-text">${escapeHtml(t('tenderInfoPlaceholder'))}</p>
       </div>
     `;
     return;
@@ -26,25 +32,29 @@ export function renderTenderInfo(container, tender) {
 
   container.innerHTML = `
     <div class="tender-info-grid">
-      <div class="info-card">
-        <span class="info-label">${t('tenderId')}</span>
-        <span class="info-value text-accent">${tender.tender_id || '-'}</span>
+      <div class="tender-info-item">
+        <div class="tender-info-label">${escapeHtml(t('tenderId'))}</div>
+        <div class="tender-info-value" style="color: var(--accent-start); font-family: monospace; font-size: 1.05rem;">
+          ${escapeHtml(tender.tender_id)}
+        </div>
       </div>
-      <div class="info-card">
-        <span class="info-label">${t('tenderTitle')}</span>
-        <span class="info-value font-medium">${tender.title || '-'}</span>
+      <div class="tender-info-item" style="grid-column: span 2;">
+        <div class="tender-info-label">${escapeHtml(t('tenderTitle'))}</div>
+        <div class="tender-info-value">${escapeHtml(tender.title)}</div>
       </div>
-      <div class="info-card">
-        <span class="info-label">${t('procuringEntity')}</span>
-        <span class="info-value">${tender.procuring_entity || '-'}</span>
+      <div class="tender-info-item">
+        <div class="tender-info-label">${escapeHtml(t('procuringEntity'))}</div>
+        <div class="tender-info-value">${escapeHtml(tender.procuring_entity)}</div>
       </div>
-      <div class="info-card">
-        <span class="info-label">${t('bidder')}</span>
-        <span class="info-value">${tender.bidder || '-'}</span>
+      <div class="tender-info-item">
+        <div class="tender-info-label">${escapeHtml(t('bidder'))}</div>
+        <div class="tender-info-value">${escapeHtml(tender.bidder)}</div>
       </div>
-      <div class="info-card">
-        <span class="info-label">${t('deadline')}</span>
-        <span class="info-value text-warning">${tender.submission_deadline || '-'}</span>
+      <div class="tender-info-item">
+        <div class="tender-info-label">${escapeHtml(t('deadline'))}</div>
+        <div class="tender-info-value" style="color: var(--status-warning);">
+          📅 ${escapeHtml(tender.submission_deadline)}
+        </div>
       </div>
     </div>
   `;

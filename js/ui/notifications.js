@@ -1,6 +1,6 @@
 /**
- * Notifications Component (Phase 1 Stub & Foundation)
- * Displays toast messages for errors, warnings, and success notices.
+ * Notifications Component (Phase 2 Full Implementation)
+ * Displays toast messages for errors, warnings, info, and success notices.
  */
 
 let containerElement = null;
@@ -15,15 +15,15 @@ function getContainer() {
 /**
  * Show a toast notification.
  * @param {string} message
- * @param {'info' | 'success' | 'warning' | 'error'} type
- * @param {number} duration Duration in milliseconds (default 4000)
+ * @param {'info' | 'success' | 'warning' | 'error'} [type='info']
+ * @param {number} [duration=4000] Duration in milliseconds
  */
 export function showNotification(message, type = 'info', duration = 4000) {
   const container = getContainer();
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = `notification notification-${type} animate-slide-in`;
+  toast.className = `notification notification--${type}`;
 
   const icons = {
     info: 'ℹ️',
@@ -34,23 +34,36 @@ export function showNotification(message, type = 'info', duration = 4000) {
 
   toast.innerHTML = `
     <span class="notification-icon">${icons[type] || 'ℹ️'}</span>
-    <span class="notification-message">${message}</span>
+    <div class="notification-content">
+      <span class="notification-message">${escapeHtml(message)}</span>
+    </div>
     <button class="notification-close" aria-label="Close">&times;</button>
   `;
 
   const closeBtn = toast.querySelector('.notification-close');
   closeBtn?.addEventListener('click', () => {
-    toast.remove();
+    dismissToast(toast);
   });
 
   container.appendChild(toast);
 
   if (duration > 0) {
     setTimeout(() => {
-      toast.classList.add('fade-out');
-      setTimeout(() => toast.remove(), 300);
+      dismissToast(toast);
     }, duration);
   }
+}
+
+/**
+ * Animate and remove a toast element.
+ * @param {HTMLElement} toast
+ */
+function dismissToast(toast) {
+  if (!toast || toast.classList.contains('removing')) return;
+  toast.classList.add('removing');
+  setTimeout(() => {
+    toast.remove();
+  }, 250);
 }
 
 /**
@@ -61,4 +74,10 @@ export function clearNotifications() {
   if (container) {
     container.innerHTML = '';
   }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
