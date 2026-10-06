@@ -1,7 +1,7 @@
 /**
- * Main Application Orchestrator (Phase 2 Implementation)
+ * Main Application Orchestrator (Phase 3 Full Implementation)
  * Bootstraps the application, wires language switching, JSON requirements loading,
- * multi-file PDF uploading, and UI rendering subscription.
+ * multi-file PDF uploading, real-time matching, and status synchronization.
  */
 
 import { getState, subscribe, addUploadedFiles } from './state.js';
@@ -15,7 +15,7 @@ import { showNotification } from './ui/notifications.js';
  * Initialize the application on DOM ready.
  */
 function initApp() {
-  console.log('📦 Initializing Tender Document Package Builder (Phase 2)');
+  console.log('📦 Initializing Tender Document Package Builder (Phase 3)');
 
   // Verify external CDN libraries
   const pdfJsAvailable = typeof window.pdfjsLib !== 'undefined';
@@ -149,10 +149,21 @@ function initApp() {
     });
   }
 
+  // ─── Step 4: Generate Package Action (Phase 3 Guard) ───
+  const btnGenerate = document.getElementById('btn-generate');
+  btnGenerate?.addEventListener('click', () => {
+    const state = getState();
+    if (state.hasBlockingStatus || !state.tender) {
+      showNotification('Cannot generate: Resolve all blocking issues first.', 'warning');
+      return;
+    }
+    showNotification('All criteria met! Package generation pipeline will be activated in Phase 4.', 'info');
+  });
+
   // Initial render
   renderAll(getState());
 
-  console.log('🚀 Tender Document Package Builder (Phase 2) initialized successfully');
+  console.log('🚀 Tender Document Package Builder (Phase 3) initialized successfully');
 }
 
 // Bootstrap when DOM is loaded
