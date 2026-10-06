@@ -12,7 +12,7 @@ The **Tender Document Package Builder** is an intelligent, frontend-only browser
 
 In tender submissions, small human errors such as omitted mandatory documents, expired licenses, duplicate file attachments, or out-of-order documents lead to immediate bid disqualification. This application automates verification, enforces business and compliance rules, and creates an official combined PDF package in strict accordance with the tender specifications.
 
----
+--- 
 
 ## 🚀 Key Features
 
