@@ -1,5 +1,5 @@
 /**
- * Internationalization (i18n) Module (Phase 5 Full Implementation)
+ * Internationalization (i18n) Module (Phase 5 & 6 Full Implementation)
  * Comprehensive English and Bengali (Bangla) translation dictionaries,
  * locale formatting, and language switching helpers.
  */
@@ -63,6 +63,11 @@ export const translations = {
     btnRemove: 'Remove',
     btnUnmatch: 'Unmatch',
     btnClearAll: 'Clear All',
+    btnAutoMatch: '⚡ Auto-Match',
+
+    // Auto-match Messages
+    autoMatchSuccess: 'Auto-matched {count} document(s) based on filenames!',
+    autoMatchNone: 'No additional matches found based on filenames.',
 
     // Generation & Blocking Reasons
     cannotGenerate: 'Cannot Generate Package',
@@ -94,6 +99,8 @@ export const translations = {
     packageSuccess: 'Submission package generated successfully!',
     packageError: 'An error occurred while generating the PDF package.',
     fileRemoved: 'File removed successfully.',
+    passwordProtectedPdf: 'is password-protected. Please upload an unprotected PDF.',
+    corruptedPdf: 'is damaged or not a valid PDF file.',
 
     // Footer
     footerText: 'Tender Document Package Builder — AI DevFest 2026'
@@ -155,6 +162,11 @@ export const translations = {
     btnRemove: 'মুছুন',
     btnUnmatch: 'সংযোগ বিচ্ছিন্ন',
     btnClearAll: 'সব পরিষ্কার করুন',
+    btnAutoMatch: '⚡ স্বয়ংক্রিয় ম্যাচ',
+
+    // Auto-match Messages
+    autoMatchSuccess: 'ফাইলের নামের ভিত্তিতে {count}টি ডকুমেন্ট স্বয়ংক্রিয়ভাবে মেলানো হয়েছে!',
+    autoMatchNone: 'ফাইলের নামের সাথে মিল রেখে কোনো নতুন ফাইল পাওয়া যায়নি।',
 
     // Generation & Blocking Reasons
     cannotGenerate: 'প্যাকেজ তৈরি করা যাচ্ছে না',
@@ -186,6 +198,8 @@ export const translations = {
     packageSuccess: 'সাবমিশন প্যাকেজ সফলভাবে তৈরি হয়েছে!',
     packageError: 'পিডিএফ প্যাকেজ তৈরির সময় একটি ত্রুটি ঘটেছে।',
     fileRemoved: 'ফাইল সফলভাবে মুছে ফেলা হয়েছে।',
+    passwordProtectedPdf: 'পাসওয়ার্ড সুরক্ষিত। অনুগ্রহ করে আনলক করা পিডিএফ আপলোড করুন।',
+    corruptedPdf: 'ফাইলটি ক্ষতিগ্রস্ত বা বৈধ পিডিএফ নয়।',
 
     // Footer
     footerText: 'টেন্ডার ডকুমেন্ট প্যাকেজ বিল্ডার — এআই দেবফেস্ট ২০২৬'
@@ -195,12 +209,21 @@ export const translations = {
 /**
  * Translate a key according to the current application language.
  * @param {string} key
+ * @param {Record<string, string|number>} [params]
  * @returns {string}
  */
-export function t(key) {
+export function t(key, params = {}) {
   const lang = getState().language || 'en';
   const dict = translations[lang] || translations.en;
-  return dict[key] !== undefined ? dict[key] : (translations.en[key] || key);
+  let text = dict[key] !== undefined ? dict[key] : (translations.en[key] || key);
+
+  if (params && typeof params === 'object') {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+
+  return text;
 }
 
 /**

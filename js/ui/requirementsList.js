@@ -1,13 +1,13 @@
 /**
- * Requirements List UI Component (Phase 3 Full Implementation)
+ * Requirements List UI Component (Phase 3 & 6 Full Implementation)
  * Renders sorted requirements table with Order, Document Name, Mandatory/Optional,
- * Matched File Selector, Expiry Input, and Real-Time Status Badges.
+ * Matched File Selector, Expiry Input, Real-Time Status Badges, and B6 Auto-Match.
  */
 
 import { t, getDocTitle } from '../i18n.js';
 import { STATUS } from '../statusEngine.js';
 import { renderFileSelectorHtml, renderExpiryInputHtml, attachMatchingListeners } from './matchingUI.js';
-import { matchFileToRequirement } from '../matcher.js';
+import { matchFileToRequirement, suggestMatches } from '../matcher.js';
 import { getState, setMatch, unmatchRequirementState, setRequirementExpiry } from '../state.js';
 import { showNotification } from './notifications.js';
 
@@ -69,6 +69,26 @@ export function renderRequirementsList(
     return;
   }
 
+  // Top action bar with B6 Auto-Match button
+  const matchedCount = Object.keys(matches).filter(k => Boolean(matches[k])).length;
+  const topBarHtml = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); padding: var(--space-xs) 0;">
+      <div style="font-size: var(--font-size-xs); color: var(--text-secondary);">
+        <span>Matched: <strong style="color: var(--text-primary);">${matchedCount}</strong> / ${requirements.length}</span>
+      </div>
+      <div>
+        <button 
+          type="button" 
+          id="btn-auto-match" 
+          class="btn btn-ghost btn-small"
+          style="border-color: var(--border-accent); color: var(--text-accent);"
+        >
+          ${escapeHtml(t('btnAutoMatch'))}
+        </button>
+      </div>
+    </div>
+  `;
+
   const rowsHtml = requirements.map((req) => {
     const title = getDocTitle(req);
     const matchedFileId = matches[req.id] || null;
@@ -108,6 +128,7 @@ export function renderRequirementsList(
   }).join('');
 
   container.innerHTML = `
+    ${topBarHtml}
     <div style="overflow-x: auto;">
       <table class="data-table">
         <thead>
@@ -134,7 +155,6 @@ export function renderRequirementsList(
       const matchResult = matchFileToRequirement(reqId, fileId, state.matches, state.uploadedFiles);
       if (!matchResult.success) {
         showNotification(matchResult.reason || 'Could not match file.', 'warning');
-        // Re-render to revert selector
         renderRequirementsList(container, requirements, statuses, matches, expiryDates, uploadedFiles);
         return;
       }
@@ -145,6 +165,26 @@ export function renderRequirementsList(
     },
     onExpiryChange: (reqId, dateVal) => {
       setRequirementExpiry(reqId, dateVal);
+    }
+  });
+
+  // Wire B6 Auto-Match button
+  const autoMatchBtn = container.querySelector('#btn-auto-match');
+  autoMatchBtn?.addEventListener('click', () => {
+    const state = getState();
+    if (!state.uploadedFiles || state.uploadedFiles.length === 0) {
+      showNotification('Please upload PDF files first.', 'info');
+      return;
+    }
+
+    const { suggestions, count } = suggestMatches(state.requirements, state.uploadedFiles, state.matches);
+    if (count > 0) {
+      for (const [reqId, fileId] of Object.entries(suggestions)) {
+        setMatch(reqId, fileId);
+      }
+      showNotification(t('autoMatchSuccess', { count }), 'success');
+    } else {
+      showNotification(t('autoMatchNone'), 'info');
     }
   });
 }

@@ -1,7 +1,7 @@
 /**
- * Matcher Module (Phase 4 Full Implementation)
+ * Matcher Module (Phase 4 & 6 B6 Implementation)
  * Enforces strict 1-to-1 requirement ↔ file mapping and duplicate constraints.
- * Allows change and undo operations at any time.
+ * Provides B6 auto-match suggestions based on filename and requirement title similarity.
  */
 
 import { canMatchFile } from './duplicateDetector.js';
@@ -96,4 +96,100 @@ export function getAvailableFilesForRequirement(requirementId, uploadedFiles = [
 
     return true;
   });
+}
+
+/**
+ * Normalize text for similarity comparison.
+ * @param {string} text
+ * @returns {string}
+ */
+function normalizeName(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/\.pdf$/i, '')
+    .replace(/[_\-\.\,\(\)\[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * B6 Bonus Feature: Compute auto-match suggestions between unmatched requirements
+ * and available uploaded files using filename-to-title resemblance.
+ * @param {Array<object>} requirements
+ * @param {Array<object>} uploadedFiles
+ * @param {Record<string, string|null>} currentMatches
+ * @returns {{ suggestions: Record<string, string>, count: number }}
+ */
+export function suggestMatches(requirements = [], uploadedFiles = [], currentMatches = {}) {
+  const suggestions = {};
+  const assignedFileIds = new Set(Object.values(currentMatches).filter(Boolean));
+
+  for (const req of requirements) {
+    // Skip if already matched
+    if (currentMatches[req.id]) continue;
+
+    const enNorm = normalizeName(req.title_en);
+    const bnNorm = normalizeName(req.title_bn);
+    const enTokens = enNorm.split(' ').filter(w => w.length > 2);
+    const bnTokens = bnNorm.split(' ').filter(w => w.length > 2);
+
+    let bestMatchFile = null;
+    let highestScore = 0;
+
+    for (const file of uploadedFiles) {
+      // Must not be already assigned
+      if (assignedFileIds.has(file.fileId)) continue;
+
+      // Duplicate constraint check
+      const check = canMatchFile(file.fileId, req.id, currentMatches, uploadedFiles);
+      if (!check.allowed) continue;
+
+      const fileNorm = normalizeName(file.name);
+      const fileTokens = fileNorm.split(' ');
+
+      // Check substring inclusion
+      let score = 0;
+      if (enNorm && fileNorm.includes(enNorm)) {
+        score += 10;
+      }
+      if (bnNorm && fileNorm.includes(bnNorm)) {
+        score += 10;
+      }
+
+      // Check token matches (e.g. 'trade', 'license', 'tin')
+      for (const token of enTokens) {
+        if (fileTokens.includes(token) || fileNorm.includes(token)) {
+          score += 3;
+        }
+      }
+      for (const token of bnTokens) {
+        if (fileTokens.includes(token) || fileNorm.includes(token)) {
+          score += 3;
+        }
+      }
+
+      // Check if requirement ID or order is in filename (e.g. "R01", "doc1", "1_")
+      const reqIdNorm = req.id.toLowerCase();
+      const orderToken = `doc${req.order}`;
+      if (fileNorm.includes(reqIdNorm) || fileNorm.includes(orderToken)) {
+        score += 4;
+      }
+
+      if (score > highestScore && score >= 3) {
+        highestScore = score;
+        bestMatchFile = file;
+      }
+    }
+
+    if (bestMatchFile) {
+      suggestions[req.id] = bestMatchFile.fileId;
+      assignedFileIds.add(bestMatchFile.fileId);
+    }
+  }
+
+  return {
+    suggestions,
+    count: Object.keys(suggestions).length
+  };
 }

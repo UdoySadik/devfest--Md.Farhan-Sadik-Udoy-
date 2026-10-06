@@ -1,24 +1,29 @@
 /**
- * File Processor Module (Phase 2 Implementation)
- * Multi-file PDF upload with strict validation:
+ * File Processor Module (Phase 6 B7 Implementation)
+ * Multi-file PDF upload with defensive error handling:
+ * - B7: Specific, targeted detection of PasswordException and InvalidPDFException
  * - PDF MIME / extension validation
- * - pdf.js document validation & page counting
+ * - Dual PDF engine support (pdf.js and pdf-lib fallback) for page counting and structural validation
  * - ArrayBuffer reading & SHA-256 content hashing
  * - File limits (max 30 files, max 50 MB total)
- * - File removal
+ * - Defensive try/catch so damaged files never crash the app
  */
 
 import { removeUploadedFile } from './state.js';
+import { t } from './i18n.js';
 
 export const MAX_FILES = 30;
 export const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50 MB in bytes
 
 /**
- * Read a file as an ArrayBuffer using FileReader API.
+ * Read a file as an ArrayBuffer.
  * @param {File|Blob} file
  * @returns {Promise<ArrayBuffer>}
  */
-export function readFileAsArrayBuffer(file) {
+export async function readFileAsArrayBuffer(file) {
+  if (file && typeof file.arrayBuffer === 'function') {
+    return await file.arrayBuffer();
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -39,7 +44,7 @@ export async function computeSha256(arrayBuffer) {
 }
 
 /**
- * Validate and process a single PDF file using pdf.js.
+ * Validate and process a single PDF file with defensive B7 error handling.
  * @param {File} file
  * @returns {Promise<{ fileId: string, name: string, size: number, pageCount: number, contentHash: string, arrayBuffer: ArrayBuffer }>}
  */
@@ -49,44 +54,81 @@ export async function validateAndProcessPdf(file) {
   const isPdfMime = file.type === 'application/pdf';
 
   if (!isPdfExtension && !isPdfMime) {
-    throw new Error(`"${file.name}" is not a PDF. Only PDF files are accepted.`);
+    throw new Error(`"${file.name}" is not a PDF. ${t('notPdf')}`);
   }
 
-  // 2. Read ArrayBuffer
+  // 2. Check for empty files (0 bytes)
+  if (file.size === 0) {
+    throw new Error(`"${file.name}" is empty (0 bytes).`);
+  }
+
+  // 3. Read ArrayBuffer
   const arrayBuffer = await readFileAsArrayBuffer(file);
 
   // Check for minimal PDF header %PDF-
   if (arrayBuffer.byteLength < 5) {
-    throw new Error(`"${file.name}" is empty or not a valid PDF.`);
+    throw new Error(`"${file.name}" is damaged or empty.`);
   }
 
   const headerBytes = new Uint8Array(arrayBuffer.slice(0, 5));
   const headerStr = String.fromCharCode(...headerBytes);
   if (headerStr !== '%PDF-') {
-    throw new Error(`"${file.name}" is not a valid PDF file.`);
+    throw new Error(`"${file.name}" ${t('corruptedPdf')}`);
   }
 
-  // 3. Validate with pdf.js and count pages
+  // 4. Validate PDF structure and count pages (B7: Safe bad file handling)
   let pageCount = 0;
+  let parsedSuccessfully = false;
+
+  // Try pdf.js first
   if (typeof window !== 'undefined' && window.pdfjsLib) {
     try {
       const loadingTask = window.pdfjsLib.getDocument({
-        data: new Uint8Array(arrayBuffer.slice(0))
+        data: new Uint8Array(arrayBuffer.slice(0)),
+        disableWorker: true
       });
-      const pdf = await loadingTask.promise;
+      const pdf = await Promise.race([
+        loadingTask.promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 1500))
+      ]);
       pageCount = pdf.numPages;
+      parsedSuccessfully = true;
     } catch (pdfErr) {
-      throw new Error(`"${file.name}" is corrupted, password-protected, or invalid.`);
+      const errName = pdfErr?.name || '';
+      const errMsg = String(pdfErr?.message || '').toLowerCase();
+
+      if (errName === 'PasswordException' || errMsg.includes('password')) {
+        throw new Error(`"${file.name}" ${t('passwordProtectedPdf')}`);
+      } else if (errName === 'InvalidPDFException' || errMsg.includes('invalid') || errMsg.includes('corrupt')) {
+        throw new Error(`"${file.name}" ${t('corruptedPdf')}`);
+      }
+      // If timed out or general worker issue, will attempt pdf-lib fallback below
     }
-  } else {
-    // Fallback if pdf.js is not loaded
-    pageCount = 1;
   }
 
-  // 4. Compute SHA-256 content hash
+  // Fallback to pdf-lib if pdf.js was unavailable or timed out
+  if (!parsedSuccessfully && typeof window !== 'undefined' && window.PDFLib) {
+    try {
+      const pdfDoc = await window.PDFLib.PDFDocument.load(arrayBuffer);
+      pageCount = pdfDoc.getPageCount();
+      parsedSuccessfully = true;
+    } catch (libErr) {
+      const msg = String(libErr?.message || '').toLowerCase();
+      if (msg.includes('password') || msg.includes('encrypt')) {
+        throw new Error(`"${file.name}" ${t('passwordProtectedPdf')}`);
+      }
+      throw new Error(`"${file.name}" ${t('corruptedPdf')}`);
+    }
+  }
+
+  if (!parsedSuccessfully) {
+    pageCount = 1; // Default fallback
+  }
+
+  // 5. Compute SHA-256 content hash
   const contentHash = await computeSha256(arrayBuffer);
 
-  // 5. Generate file ID
+  // 6. Generate unique file ID
   const fileId = typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
@@ -105,6 +147,7 @@ export async function validateAndProcessPdf(file) {
 
 /**
  * Process a batch of uploaded files while enforcing 30 files / 50 MB limits.
+ * Gracefully isolates errors per file so bad files never halt batch processing.
  * @param {FileList | Array<File>} files
  * @param {Array<object>} existingFiles
  * @returns {Promise<{ validFiles: Array<object>, errors: Array<string> }>}
