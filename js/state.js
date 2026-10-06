@@ -1,9 +1,11 @@
 /**
  * Central Application State Management
- * Follows an observable / subscriber pattern with automatic real-time status recalculation.
+ * Follows an observable / subscriber pattern with automatic real-time status
+ * recalculation and duplicate detection synchronization.
  */
 
 import { recalculateAllStatuses, getBlockingStatuses } from './statusEngine.js';
+import { detectDuplicates } from './duplicateDetector.js';
 
 const initialState = {
   // Loaded tender metadata
@@ -12,7 +14,7 @@ const initialState = {
   // Sorted list of requirements from requirements.json
   requirements: [],
   
-  // List of uploaded PDF files with metadata and buffers
+  // List of uploaded PDF files with metadata, page counts, hashes, and duplicate flags
   uploadedFiles: [],
   
   // Matching map: requirementId -> fileId | null
@@ -29,7 +31,7 @@ const initialState = {
   
   // Package generation state
   isGenerating: false,
-  generatedPackage: null,
+  generatedBlob: null,
   generationProgress: 0,
   
   // Status aggregation
@@ -41,7 +43,7 @@ let currentState = { ...initialState };
 const listeners = new Set();
 
 /**
- * Recompute statuses and blocking reasons for a given state state.
+ * Recompute statuses and blocking reasons for a given state object.
  */
 function syncStatuses(state) {
   const deadline = state.tender?.submission_deadline || '';
@@ -77,7 +79,12 @@ export function updateState(updater) {
   };
 
   // Keep statuses synchronized if requirements, matches, or expiryDates were updated
-  if (updates.requirements !== undefined || updates.matches !== undefined || updates.expiryDates !== undefined || updates.tender !== undefined) {
+  if (
+    updates.requirements !== undefined ||
+    updates.matches !== undefined ||
+    updates.expiryDates !== undefined ||
+    updates.tender !== undefined
+  ) {
     nextState = syncStatuses(nextState);
   }
   
@@ -121,7 +128,8 @@ export function setTenderAndRequirements(tender, requirements) {
       tender,
       requirements: requirements || [],
       matches: {},
-      expiryDates: {}
+      expiryDates: {},
+      generatedBlob: null
     };
     return syncStatuses(raw);
   });
@@ -129,23 +137,30 @@ export function setTenderAndRequirements(tender, requirements) {
 
 /**
  * Helper to append newly uploaded files to state.
+ * Automatically runs duplicate detection.
  * @param {Array<object>} newFiles
  */
 export function addUploadedFiles(newFiles) {
   if (!newFiles || newFiles.length === 0) return;
-  updateState(prev => ({
-    uploadedFiles: [...prev.uploadedFiles, ...newFiles]
-  }));
+  updateState(prev => {
+    const combined = [...prev.uploadedFiles, ...newFiles];
+    const withDuplicates = detectDuplicates(combined);
+    return {
+      uploadedFiles: withDuplicates,
+      generatedBlob: null
+    };
+  });
 }
 
 /**
  * Helper to remove an uploaded file by ID.
- * Automatically unmatches file and recalculates statuses.
+ * Automatically unmatches file, recalculates duplicates, and updates statuses.
  * @param {string} fileId
  */
 export function removeUploadedFile(fileId) {
   updateState(prev => {
-    const updatedFiles = prev.uploadedFiles.filter(f => f.fileId !== fileId);
+    const remaining = prev.uploadedFiles.filter(f => f.fileId !== fileId);
+    const withDuplicates = detectDuplicates(remaining);
     
     // Clean up match if this file was matched
     const updatedMatches = { ...prev.matches };
@@ -159,8 +174,9 @@ export function removeUploadedFile(fileId) {
 
     const next = {
       ...prev,
-      uploadedFiles: updatedFiles,
-      matches: matchChanged ? updatedMatches : prev.matches
+      uploadedFiles: withDuplicates,
+      matches: matchChanged ? updatedMatches : prev.matches,
+      generatedBlob: null
     };
     return syncStatuses(next);
   });
@@ -189,7 +205,8 @@ export function setMatch(requirementId, fileId) {
 
     const next = {
       ...prev,
-      matches: updatedMatches
+      matches: updatedMatches,
+      generatedBlob: null
     };
     return syncStatuses(next);
   });
@@ -204,14 +221,14 @@ export function unmatchRequirementState(requirementId) {
     const updatedMatches = { ...prev.matches };
     delete updatedMatches[requirementId];
 
-    // Optionally clear expiry date for this requirement
     const updatedExpiry = { ...prev.expiryDates };
     delete updatedExpiry[requirementId];
 
     const next = {
       ...prev,
       matches: updatedMatches,
-      expiryDates: updatedExpiry
+      expiryDates: updatedExpiry,
+      generatedBlob: null
     };
     return syncStatuses(next);
   });
@@ -231,10 +248,25 @@ export function setRequirementExpiry(requirementId, dateString) {
 
     const next = {
       ...prev,
-      expiryDates: updatedExpiry
+      expiryDates: updatedExpiry,
+      generatedBlob: null
     };
     return syncStatuses(next);
   });
+}
+
+/**
+ * Helper to update generation progress state.
+ * @param {boolean} isGenerating
+ * @param {number} progress
+ * @param {Blob|null} [blob=null]
+ */
+export function setGenerationState(isGenerating, progress, blob = null) {
+  updateState(prev => ({
+    isGenerating,
+    generationProgress: progress,
+    generatedBlob: blob !== null ? blob : prev.generatedBlob
+  }));
 }
 
 /**

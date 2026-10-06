@@ -1,8 +1,10 @@
 /**
- * Matcher Module (Phase 3 Full Implementation)
+ * Matcher Module (Phase 4 Full Implementation)
  * Enforces strict 1-to-1 requirement ↔ file mapping and duplicate constraints.
  * Allows change and undo operations at any time.
  */
+
+import { canMatchFile } from './duplicateDetector.js';
 
 /**
  * Assign a file to a requirement, enforcing 1-to-1 and duplicate constraints.
@@ -26,21 +28,14 @@ export function matchFileToRequirement(requirementId, fileId, currentMatches = {
     return { success: false, matches: currentMatches, reason: 'File not found.' };
   }
 
-  // Duplicate constraint check:
-  // Cannot match two files with identical contentHash to different requirements
-  if (targetFile.contentHash) {
-    for (const [rId, matchedFId] of Object.entries(currentMatches)) {
-      if (rId !== requirementId && matchedFId !== fileId) {
-        const otherFile = files.find(f => f.fileId === matchedFId);
-        if (otherFile && otherFile.contentHash === targetFile.contentHash) {
-          return {
-            success: false,
-            matches: currentMatches,
-            reason: `This file has identical content to "${otherFile.name}", which is already matched to another requirement.`
-          };
-        }
-      }
-    }
+  // Duplicate constraint check via duplicateDetector
+  const duplicateCheck = canMatchFile(fileId, requirementId, currentMatches, files);
+  if (!duplicateCheck.allowed) {
+    return {
+      success: false,
+      matches: currentMatches,
+      reason: duplicateCheck.reason || 'This duplicate file is already matched to another requirement.'
+    };
   }
 
   // Enforce 1-to-1 constraint:
@@ -70,7 +65,7 @@ export function unmatchRequirement(requirementId, currentMatches = {}) {
 
 /**
  * Get all files available to be selected for a specific requirement.
- * (Files not matched to another requirement, and not sharing contentHash with another matched file).
+ * (Files not matched to another requirement, and not in violation of duplicate rules).
  * @param {string} requirementId
  * @param {Array<object>} uploadedFiles
  * @param {Record<string, string|null>} currentMatches
@@ -78,17 +73,6 @@ export function unmatchRequirement(requirementId, currentMatches = {}) {
  */
 export function getAvailableFilesForRequirement(requirementId, uploadedFiles = [], currentMatches = {}) {
   const currentMatchedFileId = currentMatches[requirementId] || null;
-
-  // Find hashes of files matched to other requirements
-  const otherMatchedHashes = new Set();
-  for (const [rId, fId] of Object.entries(currentMatches)) {
-    if (rId !== requirementId && fId) {
-      const f = uploadedFiles.find(item => item.fileId === fId);
-      if (f && f.contentHash) {
-        otherMatchedHashes.add(f.contentHash);
-      }
-    }
-  }
 
   return uploadedFiles.filter(file => {
     // Current file matched to this requirement is always included
@@ -105,7 +89,8 @@ export function getAvailableFilesForRequirement(requirementId, uploadedFiles = [
     }
 
     // Check duplicate constraint
-    if (file.contentHash && otherMatchedHashes.has(file.contentHash)) {
+    const check = canMatchFile(file.fileId, requirementId, currentMatches, uploadedFiles);
+    if (!check.allowed) {
       return false;
     }
 

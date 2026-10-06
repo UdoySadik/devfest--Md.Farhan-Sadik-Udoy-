@@ -1,10 +1,12 @@
 /**
- * File Upload UI Component (Phase 2 Implementation)
- * Renders uploaded files list, page counts, file sizes, remove buttons, and summary stats.
+ * File Upload UI Component (Phase 4 & 5 Full Implementation)
+ * Renders uploaded files list, page counts, file sizes, remove buttons, duplicate badges,
+ * and summary statistics.
  */
 
 import { t } from '../i18n.js';
-import { removeFile, MAX_FILES, MAX_TOTAL_SIZE } from '../fileProcessor.js';
+import { removeFile, MAX_FILES } from '../fileProcessor.js';
+import { getDuplicateSiblingNames } from '../duplicateDetector.js';
 
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
@@ -56,15 +58,31 @@ export function renderFileUpload(container, uploadedFiles = []) {
     </div>
   `;
 
-  // List of files
+  // List of files with duplicate badges
   const itemsHtml = uploadedFiles.map((file) => {
+    let duplicateBadgeHtml = '';
+    if (file.isDuplicate) {
+      const siblings = getDuplicateSiblingNames(file.fileId, uploadedFiles);
+      const tooltip = siblings.length > 0
+        ? `Identical content to: ${siblings.join(', ')}`
+        : 'Identical content to another uploaded file';
+      duplicateBadgeHtml = `
+        <span class="duplicate-badge" title="${escapeHtml(tooltip)}" style="margin-left: 6px;">
+          ⚠ ${escapeHtml(t('duplicate'))}
+        </span>
+      `;
+    }
+
     return `
       <div class="file-item" data-file-id="${escapeHtml(file.fileId)}">
         <div class="file-item-info">
           <span class="file-item-icon">📄</span>
           <div style="min-width: 0;">
-            <div class="file-item-name" title="${escapeHtml(file.name)}">
-              ${escapeHtml(file.name)}
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span class="file-item-name" title="${escapeHtml(file.name)}">
+                ${escapeHtml(file.name)}
+              </span>
+              ${duplicateBadgeHtml}
             </div>
             <div class="file-item-meta">
               <span style="color: var(--accent-start); font-weight: 500;">

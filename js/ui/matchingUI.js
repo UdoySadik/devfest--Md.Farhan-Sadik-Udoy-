@@ -72,7 +72,7 @@ export function renderExpiryInputHtml(requirement, matchedFileId, currentDate) {
   if (!matchedFileId) {
     return `
       <span style="color: var(--text-muted); font-size: var(--font-size-xs); font-style: italic;">
-        Match file first
+        ${escapeHtml(t('matchFileFirst'))}
       </span>
     `;
   }

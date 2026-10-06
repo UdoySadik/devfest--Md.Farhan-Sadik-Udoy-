@@ -1,6 +1,7 @@
 /**
- * Internationalization (i18n) Module
- * Complete English and Bengali (Bangla) translation dictionaries and helpers.
+ * Internationalization (i18n) Module (Phase 5 Full Implementation)
+ * Comprehensive English and Bengali (Bangla) translation dictionaries,
+ * locale formatting, and language switching helpers.
  */
 
 import { getState, updateState } from './state.js';
@@ -43,6 +44,10 @@ export const translations = {
     actions: 'Actions',
     selectFilePlaceholder: 'Select file to match...',
     noFileMatched: 'None',
+    expiryCheck: 'Expiry Check',
+    matchFileFirst: 'Match file first',
+    yes: 'Yes',
+    no: 'No',
 
     // Document Statuses
     statusMissing: 'Missing',
@@ -59,6 +64,22 @@ export const translations = {
     btnUnmatch: 'Unmatch',
     btnClearAll: 'Clear All',
 
+    // Generation & Blocking Reasons
+    cannotGenerate: 'Cannot Generate Package',
+    issuesRequireAttention: 'issue(s) require attention',
+    readyToGenerate: 'All Requirements Satisfied',
+    readyToGenerateDesc: 'All mandatory documents matched and all expiry dates are valid. Ready to generate package.',
+    generatingCover: 'Generating English cover page...',
+    generatingMerge: 'Merging matched documents in order...',
+    generatingFooters: 'Stamping footers on all pages...',
+    generatingComplete: 'Package generated successfully!',
+
+    // Duplicate Detection
+    duplicate: 'Duplicate',
+    duplicateDetected: 'Duplicate file content detected.',
+    duplicateMatch: 'This file has identical content to another matched file and cannot be matched separately.',
+    identicalContentTo: 'Identical content to',
+
     // Empty States & Placeholders
     tenderInfoPlaceholder: 'No tender requirements loaded yet. Please upload a requirements.json file above.',
     filesPlaceholder: 'No PDF files uploaded yet. Add files via drag & drop or the button above.',
@@ -69,11 +90,10 @@ export const translations = {
     notPdf: 'Only valid PDF files are accepted.',
     tooManyFiles: 'Maximum 30 files allowed. Additional files were rejected.',
     tooLarge: 'Total file size exceeds 50 MB limit.',
-    duplicateDetected: 'Duplicate file content detected.',
-    duplicateMatch: 'This file has identical content to another matched file and cannot be matched separately.',
     invalidJson: 'The uploaded file is not a valid requirements.json specification.',
     packageSuccess: 'Submission package generated successfully!',
     packageError: 'An error occurred while generating the PDF package.',
+    fileRemoved: 'File removed successfully.',
 
     // Footer
     footerText: 'Tender Document Package Builder — AI DevFest 2026'
@@ -116,6 +136,10 @@ export const translations = {
     actions: 'পদক্ষেপ',
     selectFilePlaceholder: 'ম্যাচ করার জন্য ফাইল বেছে নিন...',
     noFileMatched: 'কোনোটি নয়',
+    expiryCheck: 'মেয়াদ যাচাই',
+    matchFileFirst: 'আগে ফাইল যুক্ত করুন',
+    yes: 'হ্যাঁ',
+    no: 'না',
 
     // Document Statuses
     statusMissing: 'অনুপস্থিত',
@@ -132,6 +156,22 @@ export const translations = {
     btnUnmatch: 'সংযোগ বিচ্ছিন্ন',
     btnClearAll: 'সব পরিষ্কার করুন',
 
+    // Generation & Blocking Reasons
+    cannotGenerate: 'প্যাকেজ তৈরি করা যাচ্ছে না',
+    issuesRequireAttention: 'টি সমস্যা সমাধান প্রয়োজন',
+    readyToGenerate: 'সকল প্রয়োজনীয়তা সম্পন্ন হয়েছে',
+    readyToGenerateDesc: 'সকল বাধ্যতামূলক ডকুমেন্ট সংযুক্ত এবং মেয়াদের তারিখ সঠিক রয়েছে। প্যাকেজ তৈরির জন্য প্রস্তুত।',
+    generatingCover: 'কভার পেজ তৈরি হচ্ছে...',
+    generatingMerge: 'ডকুমেন্টগুলো ক্রমানুসারে যুক্ত করা হচ্ছে...',
+    generatingFooters: 'প্রতিটি পৃষ্ঠায় ফুটার যুক্ত করা হচ্ছে...',
+    generatingComplete: 'প্যাকেজ সফলভাবে প্রস্তুত হয়েছে!',
+
+    // Duplicate Detection
+    duplicate: 'অনুরূপ (ডুপ্লিকেট)',
+    duplicateDetected: 'অনুরূপ বিষয়বস্তুর ডুপ্লিকেট ফাইল শনাক্ত হয়েছে।',
+    duplicateMatch: 'এই ফাইলটি ইতিমধ্যে সংযুক্ত অন্য একটি ফাইলের হুবহু অনুরূপ এবং আলাদাভাবে যুক্ত করা যাবে না।',
+    identicalContentTo: 'হুবহু একই বিষয়বস্তু রয়েছে',
+
     // Empty States & Placeholders
     tenderInfoPlaceholder: 'কোন টেন্ডার প্রয়োজনীয়তা এখনো লোড করা হয়নি। অনুগ্রহ করে উপরে একটি requirements.json ফাইল আপলোড করুন।',
     filesPlaceholder: 'এখনও কোনও পিডিএফ ফাইল আপলোড করা হয়নি। ফাইল নির্বাচন করুন অথবা ড্র্যাগ করে আনুন।',
@@ -142,11 +182,10 @@ export const translations = {
     notPdf: 'শুধুমাত্র বৈধ পিডিএফ ফাইল গ্রহণযোগ্য।',
     tooManyFiles: 'সর্বোচ্চ ৩০টি ফাইল অনুমোদিত। অতিরিক্ত ফাইল বাতিল করা হয়েছে।',
     tooLarge: 'ফাইলের মোট আকার ৫০ মেগাবাইটের সীমা অতিক্রম করেছে।',
-    duplicateDetected: 'অনুরূপ বিষয়বস্তুর ডুপ্লিকেট ফাইল শনাক্ত হয়েছে।',
-    duplicateMatch: 'এই ফাইলটি ইতিমধ্যে সংযুক্ত অন্য একটি ফাইলের হুবহু অনুরূপ এবং আলাদাভাবে যুক্ত করা যাবে না।',
     invalidJson: 'আপলোডকৃত ফাইলটি সঠিক requirements.json ফরম্যাটে নেই।',
     packageSuccess: 'সাবমিশন প্যাকেজ সফলভাবে তৈরি হয়েছে!',
     packageError: 'পিডিএফ প্যাকেজ তৈরির সময় একটি ত্রুটি ঘটেছে।',
+    fileRemoved: 'ফাইল সফলভাবে মুছে ফেলা হয়েছে।',
 
     // Footer
     footerText: 'টেন্ডার ডকুমেন্ট প্যাকেজ বিল্ডার — এআই দেবফেস্ট ২০২৬'

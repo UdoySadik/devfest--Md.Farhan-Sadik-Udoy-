@@ -1,21 +1,32 @@
 /**
- * Main Application Orchestrator (Phase 3 Full Implementation)
+ * Main Application Orchestrator (Phase 4 & 5 Full Implementation)
  * Bootstraps the application, wires language switching, JSON requirements loading,
- * multi-file PDF uploading, real-time matching, and status synchronization.
+ * multi-file PDF uploading, real-time matching, status synchronization,
+ * package generation pipeline, and global error handling.
  */
 
-import { getState, subscribe, addUploadedFiles } from './state.js';
-import { setLanguage } from './i18n.js';
+import { getState, subscribe, addUploadedFiles, setGenerationState } from './state.js';
+import { setLanguage, t } from './i18n.js';
 import { renderAll } from './ui/renderer.js';
 import { loadRequirements } from './requirementsLoader.js';
 import { processFiles } from './fileProcessor.js';
+import { generatePackage, downloadPackage } from './packageGenerator.js';
 import { showNotification } from './ui/notifications.js';
 
 /**
  * Initialize the application on DOM ready.
  */
 function initApp() {
-  console.log('📦 Initializing Tender Document Package Builder (Phase 3)');
+  console.log('📦 Initializing Tender Document Package Builder (Phase 4 & 5)');
+
+  // Global Error Handlers (Phase 5 Robustness)
+  window.addEventListener('error', (event) => {
+    console.error('Unhandled runtime error:', event.error || event.message);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+  });
 
   // Verify external CDN libraries
   const pdfJsAvailable = typeof window.pdfjsLib !== 'undefined';
@@ -55,7 +66,7 @@ function initApp() {
       showNotification(`Loaded tender: ${result.tender.tender_id} (${result.requirements.length} requirements)`, 'success');
     } catch (err) {
       console.error('Requirements load error:', err);
-      showNotification(err.message || 'Failed to load requirements.json', 'error');
+      showNotification(err.message || t('invalidJson'), 'error');
     }
   }
 
@@ -106,7 +117,7 @@ function initApp() {
         showNotification(err, 'error', 5000);
       }
 
-      // Add valid files to state
+      // Add valid files to state (duplicate detector runs automatically in state)
       if (validFiles.length > 0) {
         addUploadedFiles(validFiles);
         showNotification(`Successfully added ${validFiles.length} PDF file(s).`, 'success');
@@ -149,21 +160,52 @@ function initApp() {
     });
   }
 
-  // ─── Step 4: Generate Package Action (Phase 3 Guard) ───
+  // ─── Step 4: Generate Package Action ───
   const btnGenerate = document.getElementById('btn-generate');
-  btnGenerate?.addEventListener('click', () => {
+  const progressText = document.getElementById('progress-text');
+
+  btnGenerate?.addEventListener('click', async () => {
     const state = getState();
-    if (state.hasBlockingStatus || !state.tender) {
+    if (state.hasBlockingStatus || !state.tender || state.isGenerating) {
       showNotification('Cannot generate: Resolve all blocking issues first.', 'warning');
       return;
     }
-    showNotification('All criteria met! Package generation pipeline will be activated in Phase 4.', 'info');
+
+    try {
+      setGenerationState(true, 5);
+      if (progressText) progressText.textContent = 'Preparing package generation...';
+
+      const blob = await generatePackage(state, (percent, statusMsg) => {
+        setGenerationState(true, percent);
+        if (progressText) progressText.textContent = statusMsg;
+      });
+
+      // Save generated package to state
+      setGenerationState(false, 100, blob);
+      showNotification(t('packageSuccess'), 'success', 5000);
+
+      // Automatically trigger download
+      downloadPackage(blob, state.tender.tender_id);
+    } catch (genErr) {
+      console.error('Package generation error:', genErr);
+      setGenerationState(false, 0);
+      showNotification(`${t('packageError')}: ${genErr.message}`, 'error', 6000);
+    }
+  });
+
+  // ─── Download Button (Manual Re-Download) ───
+  const btnDownload = document.getElementById('btn-download');
+  btnDownload?.addEventListener('click', () => {
+    const state = getState();
+    if (state.generatedBlob && state.tender) {
+      downloadPackage(state.generatedBlob, state.tender.tender_id);
+    }
   });
 
   // Initial render
   renderAll(getState());
 
-  console.log('🚀 Tender Document Package Builder (Phase 3) initialized successfully');
+  console.log('🚀 Tender Document Package Builder (Phase 4 & 5) initialized successfully');
 }
 
 // Bootstrap when DOM is loaded

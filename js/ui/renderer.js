@@ -1,7 +1,7 @@
 /**
- * Main UI Renderer Orchestrator (Phase 3 Full Implementation)
+ * Main UI Renderer Orchestrator (Phase 4 & 5 Full Implementation)
  * Coordinates rendering of all panels, updates i18n labels, blocking reasons,
- * and synchronizes DOM with AppState.
+ * generation progress, download buttons, and DOM state synchronization.
  */
 
 import { getState } from '../state.js';
@@ -138,7 +138,7 @@ export function renderAll(state) {
       blockingContainer.className = 'blocking-reasons';
       blockingContainer.innerHTML = `
         <h3 style="color: var(--status-error); margin-bottom: var(--space-xs); font-weight: 600;">
-          ⚠️ Cannot Generate Package (${currentState.blockingReasons.length} issue${currentState.blockingReasons.length === 1 ? '' : 's'} require attention)
+          ⚠️ ${escapeHtml(t('cannotGenerate'))} (${currentState.blockingReasons.length} ${escapeHtml(t('issuesRequireAttention'))})
         </h3>
         <ul style="margin-top: var(--space-xs);">
           ${reasonsList}
@@ -151,9 +151,9 @@ export function renderAll(state) {
         <div style="background: var(--status-ok-bg); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: var(--radius-md); padding: var(--space-md) var(--space-lg); margin-bottom: var(--space-lg); color: var(--status-ok); display: flex; align-items: center; gap: var(--space-md);">
           <span style="font-size: 1.5rem;">✅</span>
           <div>
-            <div style="font-weight: 600;">All Requirements Satisfied</div>
+            <div style="font-weight: 600;">${escapeHtml(t('readyToGenerate'))}</div>
             <p style="font-size: var(--font-size-xs); color: var(--text-secondary); margin: 0;">
-              All mandatory documents matched and all expiry dates are valid. Ready to generate package.
+              ${escapeHtml(t('readyToGenerateDesc'))}
             </p>
           </div>
         </div>
@@ -169,5 +169,29 @@ export function renderAll(state) {
       !currentState.hasBlockingStatus &&
       !currentState.isGenerating;
     btnGenerate.disabled = !canGenerate;
+  }
+
+  // 7. Download button visibility
+  const btnDownload = document.getElementById('btn-download');
+  if (btnDownload) {
+    if (currentState.generatedBlob) {
+      btnDownload.classList.remove('hidden');
+    } else {
+      btnDownload.classList.add('hidden');
+    }
+  }
+
+  // 8. Progress container visibility and bar
+  const progressContainer = document.getElementById('generation-progress');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+
+  if (progressContainer && progressFill) {
+    if (currentState.isGenerating) {
+      progressContainer.classList.remove('hidden');
+      progressFill.style.width = `${currentState.generationProgress || 0}%`;
+    } else {
+      progressContainer.classList.add('hidden');
+    }
   }
 }
