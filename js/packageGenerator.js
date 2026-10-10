@@ -141,28 +141,155 @@ export async function generatePackage(state, onProgress = () => {}) {
 
   currentY -= 16;
 
-  // List each included document in order
+  // Pre-calculate document start pages (Page 1 = Cover, Page 2 = Index)
+  let currentStartPage = 3; // First document begins at Page 3
+  const documentIndex = [];
+
   for (const req of includedReqs) {
     const fileId = state.matches[req.id];
     const file = state.uploadedFiles.find(f => f.fileId === fileId);
-    const pCount = file ? file.pageCount : 1;
-    const expiry = state.expiryDates[req.id] || (req.has_expiry ? 'N/A' : 'None');
+    const pCount = file ? (file.pageCount || 1) : 1;
+    const endPage = currentStartPage + pCount - 1;
+    const pageRange = pCount > 1 ? `pp. ${currentStartPage}–${endPage}` : `Page ${currentStartPage}`;
 
-    // Light row background
-    coverPage.drawText(String(req.order), { x: 62, y: currentY, size: 9, font: fontRegular, color: rgb(0.2, 0.2, 0.3) });
-    coverPage.drawText(String(req.title_en || '-'), { x: 100, y: currentY, size: 9, font: fontRegular, color: rgb(0.1, 0.1, 0.2) });
-    coverPage.drawText(`${pCount} pg${pCount > 1 ? 's' : ''}`, { x: 380, y: currentY, size: 9, font: fontRegular, color: rgb(0.3, 0.3, 0.4) });
-    coverPage.drawText(expiry, { x: 440, y: currentY, size: 9, font: fontRegular, color: rgb(0.3, 0.3, 0.4) });
+    documentIndex.push({
+      req,
+      file,
+      order: req.order,
+      title: req.title_en || '-',
+      fileName: file ? file.name : 'Unknown',
+      pageCount: pCount,
+      startPage: currentStartPage,
+      endPage,
+      pageRange,
+      expiry: state.expiryDates[req.id] || (req.has_expiry ? 'N/A' : 'None')
+    });
+
+    currentStartPage += pCount;
+  }
+
+  // List each included document on cover page
+  for (const item of documentIndex) {
+    coverPage.drawText(String(item.order), { x: 62, y: currentY, size: 9, font: fontRegular, color: rgb(0.2, 0.2, 0.3) });
+    coverPage.drawText(String(item.title), { x: 100, y: currentY, size: 9, font: fontRegular, color: rgb(0.1, 0.1, 0.2) });
+    coverPage.drawText(`${item.pageCount} pg${item.pageCount > 1 ? 's' : ''}`, { x: 380, y: currentY, size: 9, font: fontRegular, color: rgb(0.3, 0.3, 0.4) });
+    coverPage.drawText(item.expiry, { x: 440, y: currentY, size: 9, font: fontRegular, color: rgb(0.3, 0.3, 0.4) });
 
     currentY -= 20;
-
-    // Safety check if cover page overflows
     if (currentY < 60) break;
   }
 
-  onProgress(30, 'Appending matched documents in sequence...');
+  onProgress(25, 'Generating package index / table of contents...');
 
-  // 3. Append Matched Documents in strict order
+  // ═══════════════════════════════════════════════════════════════════════
+  // 3. Generate B1 Index Page (Page 2: Table of Contents & Start Pages)
+  // ═══════════════════════════════════════════════════════════════════════
+  const indexPage = pdfDoc.addPage([595.28, 841.89]);
+  const { width: idxWidth, height: idxHeight } = indexPage.getSize();
+
+  // Index Page Header
+  indexPage.drawText('DOCUMENT INDEX & TABLE OF CONTENTS', {
+    x: 50,
+    y: idxHeight - 70,
+    size: 18,
+    font: fontBold,
+    color: rgb(0.12, 0.16, 0.28)
+  });
+
+  indexPage.drawText(`Tender ID: ${state.tender.tender_id}  |  Starting Page Directory`, {
+    x: 50,
+    y: idxHeight - 90,
+    size: 10,
+    font: fontRegular,
+    color: rgb(0.4, 0.45, 0.55)
+  });
+
+  // Top Accent Line
+  indexPage.drawLine({
+    start: { x: 50, y: idxHeight - 105 },
+    end: { x: idxWidth - 50, y: idxHeight - 105 },
+    thickness: 1.5,
+    color: rgb(0.39, 0.4, 0.95)
+  });
+
+  // Preliminary structure notice
+  indexPage.drawRectangle({
+    x: 50,
+    y: idxHeight - 145,
+    width: idxWidth - 100,
+    height: 30,
+    color: rgb(0.96, 0.97, 0.99),
+    borderColor: rgb(0.85, 0.88, 0.94),
+    borderWidth: 0.8
+  });
+
+  indexPage.drawText('PRELIMINARY:  Page 1: Submission Cover Page    |    Page 2: Document Index & TOC', {
+    x: 65,
+    y: idxHeight - 133,
+    size: 8.5,
+    font: fontBold,
+    color: rgb(0.3, 0.35, 0.45)
+  });
+
+  let idxY = idxHeight - 170;
+
+  // Index Table Header
+  indexPage.drawText('Item', { x: 55, y: idxY, size: 9, font: fontBold, color: rgb(0.45, 0.5, 0.6) });
+  indexPage.drawText('Document Title', { x: 95, y: idxY, size: 9, font: fontBold, color: rgb(0.45, 0.5, 0.6) });
+  indexPage.drawText('Matched File', { x: 260, y: idxY, size: 9, font: fontBold, color: rgb(0.45, 0.5, 0.6) });
+  indexPage.drawText('Pages', { x: 420, y: idxY, size: 9, font: fontBold, color: rgb(0.45, 0.5, 0.6) });
+  indexPage.drawText('Start Page', { x: 470, y: idxY, size: 9, font: fontBold, color: rgb(0.39, 0.4, 0.95) });
+
+  idxY -= 8;
+  indexPage.drawLine({
+    start: { x: 50, y: idxY },
+    end: { x: idxWidth - 50, y: idxY },
+    thickness: 0.8,
+    color: rgb(0.8, 0.82, 0.88)
+  });
+
+  idxY -= 16;
+
+  // Render each document in Index table
+  for (const item of documentIndex) {
+    // Row background highlight for readability
+    if (item.order % 2 === 0) {
+      indexPage.drawRectangle({
+        x: 50,
+        y: idxY - 5,
+        width: idxWidth - 100,
+        height: 18,
+        color: rgb(0.98, 0.98, 0.99)
+      });
+    }
+
+    const orderStr = String(item.order).padStart(2, '0');
+    indexPage.drawText(orderStr, { x: 58, y: idxY, size: 8.5, font: fontRegular, color: rgb(0.3, 0.3, 0.4) });
+
+    // Document Title
+    const truncatedTitle = item.title.length > 28 ? item.title.slice(0, 26) + '...' : item.title;
+    indexPage.drawText(truncatedTitle, { x: 95, y: idxY, size: 8.5, font: fontBold, color: rgb(0.12, 0.16, 0.28) });
+
+    // Filename
+    const truncatedFile = item.fileName.length > 26 ? item.fileName.slice(0, 24) + '...' : item.fileName;
+    indexPage.drawText(truncatedFile, { x: 260, y: idxY, size: 8, font: fontRegular, color: rgb(0.4, 0.45, 0.55) });
+
+    // Pages
+    indexPage.drawText(`${item.pageCount} pg${item.pageCount > 1 ? 's' : ''}`, { x: 420, y: idxY, size: 8.5, font: fontRegular, color: rgb(0.35, 0.4, 0.5) });
+
+    // Start Page (Prominently styled)
+    const pageBadge = `Page ${item.startPage}`;
+    indexPage.drawText(pageBadge, { x: 470, y: idxY, size: 9, font: fontBold, color: rgb(0.25, 0.35, 0.85) });
+
+    idxY -= 20;
+    if (idxY < 60) break;
+  }
+
+  onProgress(35, 'Appending matched documents in sequence...');
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 4. Append Matched Documents in strict requirements order
+  // ═══════════════════════════════════════════════════════════════════════
   let docIndex = 0;
   for (const req of includedReqs) {
     const fileId = state.matches[req.id];
@@ -170,7 +297,7 @@ export async function generatePackage(state, onProgress = () => {}) {
 
     if (file && file.arrayBuffer) {
       docIndex++;
-      const percent = 30 + Math.floor((docIndex / includedReqs.length) * 45);
+      const percent = 35 + Math.floor((docIndex / includedReqs.length) * 45);
       onProgress(percent, `Appending document ${docIndex}/${includedReqs.length}: ${file.name}`);
 
       try {
@@ -188,10 +315,12 @@ export async function generatePackage(state, onProgress = () => {}) {
     }
   }
 
-  onProgress(80, 'Stamping footers on all pages...');
+  onProgress(85, 'Stamping footers on all pages...');
 
-  // 4. Stamp Footers on EVERY Page (Page 1 to totalPages)
+  // ═══════════════════════════════════════════════════════════════════════
+  // 5. Stamp Footers on EVERY Page (Cover, Index, and all Documents)
   // Format: "<tender_id> | Page X of Y"
+  // ═══════════════════════════════════════════════════════════════════════
   const totalPages = pdfDoc.getPageCount();
   const tenderId = state.tender.tender_id;
 

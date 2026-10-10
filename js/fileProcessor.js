@@ -81,6 +81,7 @@ export async function validateAndProcessPdf(file) {
   let parsedSuccessfully = false;
 
   // Try pdf.js first
+  let detectedExpiryDate = null;
   if (typeof window !== 'undefined' && window.pdfjsLib) {
     try {
       const loadingTask = window.pdfjsLib.getDocument({
@@ -93,6 +94,25 @@ export async function validateAndProcessPdf(file) {
       ]);
       pageCount = pdf.numPages;
       parsedSuccessfully = true;
+
+      // Extract text content from pages to detect expiry date if present
+      try {
+        const pagesToCheck = Math.min(pageCount, 2);
+        for (let pNum = 1; pNum <= pagesToCheck; pNum++) {
+          const page = await pdf.getPage(pNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+
+          const expiryMatch = pageText.match(/(?:valid\s+until|expiry\s+date|valid\s+upto|valid\s+to|valid\s+through)[\s\S]*?(\d{4}-\d{2}-\d{2})/i) ||
+                             pageText.match(/\((\d{4}-\d{2}-\d{2})\)/);
+          if (expiryMatch && expiryMatch[1]) {
+            detectedExpiryDate = expiryMatch[1];
+            break;
+          }
+        }
+      } catch (textErr) {
+        // Graceful non-blocking fallback
+      }
     } catch (pdfErr) {
       const errName = pdfErr?.name || '';
       const errMsg = String(pdfErr?.message || '').toLowerCase();
@@ -140,6 +160,7 @@ export async function validateAndProcessPdf(file) {
     pageCount,
     contentHash,
     arrayBuffer,
+    detectedExpiryDate: detectedExpiryDate || null,
     isDuplicate: false,
     duplicateGroupId: null
   };

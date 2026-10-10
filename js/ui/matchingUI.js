@@ -123,12 +123,14 @@ export function attachMatchingListeners(container, { onMatch, onUnmatch, onExpir
   // 3. Expiry date inputs
   const expiryInputs = container.querySelectorAll('.expiry-date-input');
   expiryInputs.forEach(input => {
-    input.addEventListener('change', (e) => {
+    const handleExpiryUpdate = () => {
       const reqId = input.getAttribute('data-req-id');
       const dateVal = input.value;
       if (reqId && onExpiryChange) {
         onExpiryChange(reqId, dateVal);
       }
-    });
+    };
+    input.addEventListener('change', handleExpiryUpdate);
+    input.addEventListener('input', handleExpiryUpdate);
   });
 }

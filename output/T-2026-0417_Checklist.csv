@@ -1,0 +1,19 @@
+﻿TENDER CHECKLIST REPORT
+Tender ID,T-2026-0417
+Tender Title,Supply of IT Equipment
+Procuring Entity,Directorate of Sample Services
+Bidder,Meghna Tech Solutions Ltd.
+Submission Deadline,2026-10-20
+Export Timestamp,2026-10-10T16:26:25.455Z
+
+Order,Requirement ID,Document Name (EN),Document Name (BN),Requirement Type,Has Expiry,Matched File,Page Count,Expiry Date,Current Status
+1,R01,Trade License,ট্রেড লাইসেন্স,Mandatory,Yes,trade_license_2026.pdf,1,2027-06-30,OK
+2,R02,TIN Certificate,টিআইএন সনদ,Mandatory,No,03_tin_certificate.pdf,1,N/A,OK
+3,R03,VAT Registration Certificate,ভ্যাট নিবন্ধন সনদ,Mandatory,No,04_vat_certificate.pdf,1,N/A,OK
+4,R04,Bank Solvency Certificate,ব্যাংক সচ্ছলতা সনদ,Mandatory,Yes,bank_solvency.pdf,1,2026-12-31,OK
+5,R05,Experience Certificate,অভিজ্ঞতার সনদ,Mandatory,No,experience_cert (1).pdf,2,N/A,OK
+6,R06,Audited Financial Statement,নিরীক্ষিত আর্থিক বিবরণী,Optional,No,Not provided,0,N/A,Not provided
+7,R07,Manufacturer's Authorization,প্রস্তুতকারকের অনুমোদনপত্র,Optional,Yes,Not provided,0,Pending / Not entered,Not provided
+8,R08,Technical Proposal,কারিগরি প্রস্তাব,Mandatory,No,02_technical_proposal.pdf,6,N/A,OK
+9,R09,Financial Proposal,আর্থিক প্রস্তাব,Mandatory,No,01_financial_proposal.pdf,2,N/A,OK
+10,R10,Signed Declaration,স্বাক্ষরিত ঘোষণাপত্র,Mandatory,No,scan_0042.pdf,1,N/A,OK

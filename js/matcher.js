@@ -115,76 +115,123 @@ function normalizeName(text) {
 
 /**
  * B6 Bonus Feature: Compute auto-match suggestions between unmatched requirements
- * and available uploaded files using filename-to-title resemblance.
+ * and available uploaded files using global score-ranked resemblance.
+ * Uses global score sorting so exact multi-word matches (like Financial Proposal)
+ * are prioritized over single-token partial matches.
  * @param {Array<object>} requirements
  * @param {Array<object>} uploadedFiles
  * @param {Record<string, string|null>} currentMatches
+ * @param {number} [targetYear=2026]
  * @returns {{ suggestions: Record<string, string>, count: number }}
  */
-export function suggestMatches(requirements = [], uploadedFiles = [], currentMatches = {}) {
+export function suggestMatches(requirements = [], uploadedFiles = [], currentMatches = {}, targetYear = 2026) {
   const suggestions = {};
-  const assignedFileIds = new Set(Object.values(currentMatches).filter(Boolean));
+  const currentAssignedFiles = new Set(Object.values(currentMatches).filter(Boolean));
+  const assignedReqs = new Set(Object.keys(currentMatches).filter(k => Boolean(currentMatches[k])));
+
+  // Calculate scores for all candidate pairs (unmatched requirement, available file)
+  const candidatePairs = [];
 
   for (const req of requirements) {
-    // Skip if already matched
-    if (currentMatches[req.id]) continue;
+    if (assignedReqs.has(req.id)) continue;
 
     const enNorm = normalizeName(req.title_en);
     const bnNorm = normalizeName(req.title_bn);
     const enTokens = enNorm.split(' ').filter(w => w.length > 2);
     const bnTokens = bnNorm.split(' ').filter(w => w.length > 2);
 
-    let bestMatchFile = null;
-    let highestScore = 0;
-
     for (const file of uploadedFiles) {
-      // Must not be already assigned
-      if (assignedFileIds.has(file.fileId)) continue;
-
-      // Duplicate constraint check
+      if (currentAssignedFiles.has(file.fileId)) continue;
       const check = canMatchFile(file.fileId, req.id, currentMatches, uploadedFiles);
       if (!check.allowed) continue;
 
       const fileNorm = normalizeName(file.name);
       const fileTokens = fileNorm.split(' ');
 
-      // Check substring inclusion
       let score = 0;
+
+      // Exact full title match (e.g. 'financial proposal' in '01 financial proposal')
       if (enNorm && fileNorm.includes(enNorm)) {
-        score += 10;
+        score += 25;
       }
       if (bnNorm && fileNorm.includes(bnNorm)) {
-        score += 10;
+        score += 25;
       }
 
-      // Check token matches (e.g. 'trade', 'license', 'tin')
+      // Token matches
+      let matchedTokens = 0;
       for (const token of enTokens) {
         if (fileTokens.includes(token) || fileNorm.includes(token)) {
-          score += 3;
+          score += 6;
+          matchedTokens++;
         }
       }
       for (const token of bnTokens) {
         if (fileTokens.includes(token) || fileNorm.includes(token)) {
-          score += 3;
+          score += 6;
+          matchedTokens++;
         }
       }
 
-      // Check if requirement ID or order is in filename (e.g. "R01", "doc1", "1_")
-      const reqIdNorm = req.id.toLowerCase();
-      const orderToken = `doc${req.order}`;
-      if (fileNorm.includes(reqIdNorm) || fileNorm.includes(orderToken)) {
-        score += 4;
+      // Bonus if all title tokens match
+      if (enTokens.length > 1 && matchedTokens >= enTokens.length) {
+        score += 15;
       }
 
-      if (score > highestScore && score >= 3) {
-        highestScore = score;
-        bestMatchFile = file;
+      // Year preference: if filename has year >= targetYear (e.g. 2026 vs 2025)
+      const yearMatch = fileNorm.match(/\b(20\d{2})\b/);
+      if (yearMatch) {
+        const fileYear = parseInt(yearMatch[1], 10);
+        if (fileYear >= targetYear) {
+          score += 5;
+        }
+      }
+
+      // Small bonus for mandatory requirements to resolve ties
+      if (req.mandatory) {
+        score += 2;
+      }
+
+      if (score >= 6) {
+        candidatePairs.push({
+          reqId: req.id,
+          fileId: file.fileId,
+          score
+        });
       }
     }
+  }
 
-    if (bestMatchFile) {
-      suggestions[req.id] = bestMatchFile.fileId;
-      assignedFileIds.add(bestMatchFile.fileId);
+  // Sort candidate pairs by score descending
+  candidatePairs.sort((a, b) => b.score - a.score);
+
+  const matchedReqIds = new Set();
+  const matchedFileIds = new Set();
+
+  for (const pair of candidatePairs) {
+    if (matchedReqIds.has(pair.reqId) || matchedFileIds.has(pair.fileId)) continue;
+
+    const mockMatches = { ...currentMatches, ...suggestions };
+    const check = canMatchFile(pair.fileId, pair.reqId, mockMatches, uploadedFiles);
+    if (!check.allowed) continue;
+
+    suggestions[pair.reqId] = pair.fileId;
+    matchedReqIds.add(pair.reqId);
+    matchedFileIds.add(pair.fileId);
+  }
+
+  // Fallback pass: If exactly 1 mandatory requirement remains unmatched and exactly 1 non-duplicate file remains
+  const remainingMandatory = requirements.filter(r => r.mandatory && !currentMatches[r.id] && !suggestions[r.id]);
+  const allUsedFileIds = new Set([...currentAssignedFiles, ...matchedFileIds]);
+  const remainingFiles = uploadedFiles.filter(f => !allUsedFileIds.has(f.fileId));
+
+  if (remainingMandatory.length === 1 && remainingFiles.length >= 1) {
+    const candidateFile = remainingFiles.find(f => {
+      const mockMatches = { ...currentMatches, ...suggestions };
+      return canMatchFile(f.fileId, remainingMandatory[0].id, mockMatches, uploadedFiles).allowed;
+    });
+    if (candidateFile) {
+      suggestions[remainingMandatory[0].id] = candidateFile.fileId;
     }
   }
 

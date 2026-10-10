@@ -64,10 +64,13 @@ export const translations = {
     btnUnmatch: 'Unmatch',
     btnClearAll: 'Clear All',
     btnAutoMatch: '⚡ Auto-Match',
+    btnExportCsv: '📊 Export Checklist (CSV)',
 
     // Auto-match Messages
     autoMatchSuccess: 'Auto-matched {count} document(s) based on filenames!',
     autoMatchNone: 'No additional matches found based on filenames.',
+    csvExportSuccess: 'Checklist exported successfully as CSV!',
+    csvExportError: 'Failed to export checklist.',
 
     // Generation & Blocking Reasons
     cannotGenerate: 'Cannot Generate Package',
@@ -75,6 +78,7 @@ export const translations = {
     readyToGenerate: 'All Requirements Satisfied',
     readyToGenerateDesc: 'All mandatory documents matched and all expiry dates are valid. Ready to generate package.',
     generatingCover: 'Generating English cover page...',
+    generatingIndex: 'Generating package index page...',
     generatingMerge: 'Merging matched documents in order...',
     generatingFooters: 'Stamping footers on all pages...',
     generatingComplete: 'Package generated successfully!',
@@ -163,10 +167,13 @@ export const translations = {
     btnUnmatch: 'সংযোগ বিচ্ছিন্ন',
     btnClearAll: 'সব পরিষ্কার করুন',
     btnAutoMatch: '⚡ স্বয়ংক্রিয় ম্যাচ',
+    btnExportCsv: '📊 চেকলিস্ট এক্সপোর্ট (CSV)',
 
     // Auto-match Messages
     autoMatchSuccess: 'ফাইলের নামের ভিত্তিতে {count}টি ডকুমেন্ট স্বয়ংক্রিয়ভাবে মেলানো হয়েছে!',
     autoMatchNone: 'ফাইলের নামের সাথে মিল রেখে কোনো নতুন ফাইল পাওয়া যায়নি।',
+    csvExportSuccess: 'চেকলিস্ট সফলভাবে CSV হিসেবে এক্সপোর্ট হয়েছে!',
+    csvExportError: 'চেকলিস্ট এক্সপোর্টে ত্রুটি হয়েছে।',
 
     // Generation & Blocking Reasons
     cannotGenerate: 'প্যাকেজ তৈরি করা যাচ্ছে না',
@@ -174,6 +181,7 @@ export const translations = {
     readyToGenerate: 'সকল প্রয়োজনীয়তা সম্পন্ন হয়েছে',
     readyToGenerateDesc: 'সকল বাধ্যতামূলক ডকুমেন্ট সংযুক্ত এবং মেয়াদের তারিখ সঠিক রয়েছে। প্যাকেজ তৈরির জন্য প্রস্তুত।',
     generatingCover: 'কভার পেজ তৈরি হচ্ছে...',
+    generatingIndex: 'প্যাকেজ ইনডেক্স পেজ তৈরি হচ্ছে...',
     generatingMerge: 'ডকুমেন্টগুলো ক্রমানুসারে যুক্ত করা হচ্ছে...',
     generatingFooters: 'প্রতিটি পৃষ্ঠায় ফুটার যুক্ত করা হচ্ছে...',
     generatingComplete: 'প্যাকেজ সফলভাবে প্রস্তুত হয়েছে!',

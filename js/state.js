@@ -190,6 +190,7 @@ export function removeUploadedFile(fileId) {
 export function setMatch(requirementId, fileId) {
   updateState(prev => {
     const updatedMatches = { ...prev.matches };
+    const updatedExpiry = { ...prev.expiryDates };
     
     if (!fileId) {
       delete updatedMatches[requirementId];
@@ -201,11 +202,19 @@ export function setMatch(requirementId, fileId) {
         }
       }
       updatedMatches[requirementId] = fileId;
+
+      // Auto-populate expiry date if detected from the PDF
+      const req = (prev.requirements || []).find(r => r.id === requirementId);
+      const file = (prev.uploadedFiles || []).find(f => f.fileId === fileId);
+      if (req && req.has_expiry && file && file.detectedExpiryDate) {
+        updatedExpiry[requirementId] = file.detectedExpiryDate;
+      }
     }
 
     const next = {
       ...prev,
       matches: updatedMatches,
+      expiryDates: updatedExpiry,
       generatedBlob: null
     };
     return syncStatuses(next);

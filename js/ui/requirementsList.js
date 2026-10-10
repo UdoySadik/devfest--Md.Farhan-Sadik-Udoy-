@@ -10,6 +10,7 @@ import { renderFileSelectorHtml, renderExpiryInputHtml, attachMatchingListeners 
 import { matchFileToRequirement, suggestMatches } from '../matcher.js';
 import { getState, setMatch, unmatchRequirementState, setRequirementExpiry } from '../state.js';
 import { showNotification } from './notifications.js';
+import { exportChecklistCsv } from '../exporter.js';
 
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
@@ -76,7 +77,7 @@ export function renderRequirementsList(
       <div style="font-size: var(--font-size-xs); color: var(--text-secondary);">
         <span>Matched: <strong style="color: var(--text-primary);">${matchedCount}</strong> / ${requirements.length}</span>
       </div>
-      <div>
+      <div style="display: flex; gap: var(--space-xs); flex-wrap: wrap;">
         <button 
           type="button" 
           id="btn-auto-match" 
@@ -84,6 +85,14 @@ export function renderRequirementsList(
           style="border-color: var(--border-accent); color: var(--text-accent);"
         >
           ${escapeHtml(t('btnAutoMatch'))}
+        </button>
+        <button 
+          type="button" 
+          id="btn-export-csv" 
+          class="btn btn-ghost btn-small"
+          style="border-color: var(--border-color); color: var(--text-primary);"
+        >
+          ${escapeHtml(t('btnExportCsv'))}
         </button>
       </div>
     </div>
@@ -177,7 +186,10 @@ export function renderRequirementsList(
       return;
     }
 
-    const { suggestions, count } = suggestMatches(state.requirements, state.uploadedFiles, state.matches);
+    const targetYear = state.tender?.submission_deadline
+      ? parseInt(state.tender.submission_deadline.split('-')[0], 10)
+      : 2026;
+    const { suggestions, count } = suggestMatches(state.requirements, state.uploadedFiles, state.matches, targetYear);
     if (count > 0) {
       for (const [reqId, fileId] of Object.entries(suggestions)) {
         setMatch(reqId, fileId);
@@ -185,6 +197,19 @@ export function renderRequirementsList(
       showNotification(t('autoMatchSuccess', { count }), 'success');
     } else {
       showNotification(t('autoMatchNone'), 'info');
+    }
+  });
+
+  // Wire B3 Export CSV button
+  const exportCsvBtn = container.querySelector('#btn-export-csv');
+  exportCsvBtn?.addEventListener('click', () => {
+    const state = getState();
+    try {
+      exportChecklistCsv(state);
+      showNotification(t('csvExportSuccess'), 'success');
+    } catch (err) {
+      console.error('CSV export error:', err);
+      showNotification(err.message || t('csvExportError'), 'error');
     }
   });
 }

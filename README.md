@@ -38,7 +38,9 @@ In tender submissions, small human errors such as omitted mandatory documents, e
 
 ### High-Value Bonus Features (Phase 6)
 - **B7 — Safe Bad/Invalid PDF Handling:** Defensive error boundaries capturing corrupted, truncated, or password-protected PDFs (`PasswordException`, `InvalidPDFException`) without application crashes.
-- **B6 — Intelligent Auto-Match Suggestions:** Token and substring similarity algorithms analyzing filenames and requirement titles to automatically suggest matches with a single click (`⚡ Auto-Match`).
+- **B6 — Intelligent Auto-Match Suggestions:** Token and substring similarity algorithms analyzing filenames, requirement titles, and year tokens to automatically suggest matches with a single click (`⚡ Auto-Match`).
+- **B3 — Checklist CSV Export:** Complete spreadsheet export module (`js/exporter.js`) generating `<tender_id>_Checklist.csv` with UTF-8 BOM encoding for seamless Excel rendering of Bangla script and Unicode, containing tender metadata, requirement order, document titles (EN & BN), matched files, page counts, expiry dates, and statuses.
+- **B1 — Table of Contents / Index Page:** Inserted as Page 2 right after the English Cover Page in the generated package. Displays sequential document order, document titles, matched filenames, page counts, starting page numbers, and page ranges. Total package page count $Y$ and `<tender_id> | Page X of Y` footers are dynamically adjusted.
 
 ---
 
@@ -68,22 +70,25 @@ In tender submissions, small human errors such as omitted mandatory documents, e
 │   ├── duplicateDetector.js     # Exact-content duplicate grouping (SHA-256)
 │   ├── matcher.js               # 1-to-1 matching and B6 Auto-Match algorithm
 │   ├── statusEngine.js          # Pure business logic status engine
-│   ├── packageGenerator.js      # pdf-lib cover page, merge, footers & download
+│   ├── exporter.js              # B3: Checklist CSV export with UTF-8 BOM
+│   ├── packageGenerator.js      # B1: Cover page, Index page, merge, footers & download
 │   └── ui/
 │       ├── renderer.js          # Master UI render coordinator
 │       ├── tenderInfo.js        # Tender metadata cards renderer
-│       ├── requirementsList.js  # Sorted requirements table & status badges
+│       ├── requirementsList.js  # Sorted requirements table, status badges, B6 & B3 buttons
 │       ├── fileUpload.js        # File upload list, stats, and duplicate badges
 │       ├── matchingUI.js        # Interactive selector and expiry inputs
 │       └── notifications.js     # Toast notifications
 ├── output/
-│   └── T-2026-0417_Package.pdf  # Generated verified submission package (7 pages)
+│   ├── T-2026-0417_Package.pdf  # Generated submission package (17 pages with B1 Index)
+│   └── T-2026-0417_Checklist.csv# B3: Generated checklist CSV
 ├── screenshots/
-│   ├── cover_page.png           # Rendered English cover page screenshot
-│   ├── sample_document_footer.png# Rendered document page with stamped footer
-│   └── status_overview.png      # Application status dashboard overview
+│   ├── cover_page.png           # Rendered Page 1 English cover page
+│   ├── index_page.png           # B1: Rendered Page 2 Table of Contents / Index page
+│   ├── sample_document_footer.png # Rendered document page with stamped margin footer
+│   └── status_overview.png      # Application UI with all requirements satisfied
 ├── test_data/                   # Automated test fixtures (requirements & sample PDFs)
-├── ARCHITECTURE.md              # Architectural design specification document
+├── ARCHITECTURE.md              # Complete architectural design specification
 └── IMPLEMENTATION_PLAN.md       # Implementation blueprint
 ```
 
